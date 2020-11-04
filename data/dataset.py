@@ -22,31 +22,49 @@ import torch
 import torch.utils.data as data
 from torchvision import datasets, models, transforms
 
-from libs.configs import cfgs
+from configs.cfgs import args
 from utils.misc import plt_imshow, plot_image_class
+from data.transforms import get_transforms
+from utils.misc import read_class_names
+
+
+index_class = read_class_names(args.classes)
+class_index = {c:i for i,c in index_class.items()}
 
 
 class SceneDataset(data.Dataset):
 
-    def __init__(self, data, target, transforms=None):
+    def __init__(self, root, transforms=None, target_transform=None):
         super(SceneDataset, self).__init__()
 
-        self.data = data
-        self.target = target
+        assert '.txt' in root, "invalid data path"
+
+        self.data = list(open(root))
+
         self.transforms = transforms
+        self.target_transform = target_transform
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        img_path, target = self.data[index], self.target[index]
+        img_path, target = self.data[index].strip().split(',')
 
         # doing this so that it is consistent with all other datasets
+
         # to return a PIL Image
-        img = self.pil_loader(img_path)
+        try:
+            img = self.pil_loader(img_path)
+            target = int(target)
+        except:
+            print('Corrupted due to cannot read {}'.format(img_path))
+            return self[index+1]
 
         if self.transforms is not None:
             img = self.transforms(img)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
 
         return img, target
 
@@ -59,94 +77,66 @@ class SceneDataset(data.Dataset):
 
 class DataProvider(object):
 
-    def __init__(self, images, labels=None, split_ratio=0.0):
+    def __init__(self):
+        pass
 
-        self.train_images = images[: int(len(images) * split_ratio)]
-        self.val_images = images[int(len(images) * split_ratio):]
-        self.train_labels = labels[: int(len(labels) * split_ratio)]
-        self.val_labels = labels[int(len(labels) * split_ratio):]
+    def __call__(self, data_path, batch_size, backbone=None, phase='test', num_worker=4):
 
-        # Data augmentation and normalization for training
-        # Just normalization for validation
-        self.data_transforms = {
-            'train': transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ]),
-            'val': transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ]),
-        }
+        assert phase in ['train', 'val', 'test']
 
-    def loader(self, batch_size, phase='train', shuffle=False, num_worker=4):
-        assert phase in ['train', 'val']
+        transforms = get_transforms(args.image_size, mode=phase, backbone=backbone)
+        dataset = SceneDataset(data_path, transforms)
         if phase == 'train':
-            dataset = SceneDataset(self.train_images, self.train_labels, self.data_transforms[phase])
-            loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_worker)
+            loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_worker)
         else:
-            dataset = SceneDataset(self.val_images, self.val_labels, self.data_transforms[phase])
-            loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_worker)
+            loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_worker)
 
         return loader
 
 
-def data_loader(image_path, label_path=None, batch_size=256, split_ratio=0.9):
+# def data_loader(image_path, label_path=None, batch_size=256, split_ratio=0.9):
+#
+#     """
+#
+#     :param image_path:
+#     :param label_path:
+#     :param phase:
+#     :param batch_size:
+#     :param split_ratio:
+#     :return:
+#     """
+#
+#     images_labels = pd.read_csv(label_path, sep=',', header=0)
+#
+#     train_labels = images_labels['label']
+#
+#     # labels_count = train_labels.value_counts(sort=False)
+#
+#     category = sorted(set(train_labels.values.tolist()))
+#
+#     class_index = {c: i for i, c in enumerate(category)}
+#     index_class = {i: c for i, c in enumerate(category)}
+#
+#     # shuffle DataFrame
+#
+#     images = [os.path.join(image_path, img) for img in images_labels['filename'].tolist()]
+#     labels = [class_index[c] for c in images_labels['label'].tolist()]
 
-    """
-
-    :param image_path:
-    :param label_path:
-    :param phase:
-    :param batch_size:
-    :param split_ratio:
-    :return:
-    """
-
-    images_labels = pd.read_csv(label_path, sep=',', header=0)
-
-    train_labels = images_labels['label']
-
-    # labels_count = train_labels.value_counts(sort=False)
-
-    category = sorted(set(train_labels.values.tolist()))
-
-    class_index = {c: i for i, c in enumerate(category)}
-    index_class = {i: c for i, c in enumerate(category)}
-
-    # shuffle DataFrame
-
-    images = [os.path.join(image_path, img) for img in images_labels['filename'].tolist()]
-    labels = [class_index[c] for c in images_labels['label'].tolist()]
-
-    data_provider = DataProvider(images, labels, split_ratio=split_ratio)
-
-    train_loader = data_provider.loader(batch_size=batch_size, phase='train', shuffle=True, num_worker=4)
-    val_loader = data_provider.loader(batch_size=batch_size, phase='val', shuffle=False, num_worker=4)
-
-    return train_loader, val_loader, class_index, index_class
 
 
 
 def main():
-    plt.ion()  # interactive mode
+    # plt.ion()  # interactive mode
 
-    dataset_dir = pathlib.Path(cfgs.DATASET_PATH)
+    data_provider = DataProvider()
 
-    labels_path = list(dataset_dir.glob('./*.csv'))[0]
+    train_loader = data_provider(args.train_data, args.batch_size, backbone=None, phase='train', num_worker=4)
+    eval_loader = data_provider(args.val_data, args.batch_size, backbone=None, phase='val', num_worker=4)
 
-    train_data_path = os.path.join(cfgs.DATASET_PATH, 'train')
-    test_data_path = os.path.join(cfgs.DATASET_PATH, 'test')
+    images, labels = next(iter(eval_loader))
 
-    train_loader, val_loader, class_index, index_class = data_loader(train_data_path, labels_path, batch_size=256, split_ratio=0.9)
+    plot_image_class(images[:36], labels[:36], index_class=index_class)
 
-    image_tensor, labels_tensor = next(iter(val_loader))
-
-    plot_image_class(image_tensor[:36], labels_tensor[:36], index_class)
 
 
 

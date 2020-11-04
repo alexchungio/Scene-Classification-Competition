@@ -69,7 +69,6 @@ def split_train_val(data, target, n_splits=10, shuffle=True, random_state=2020):
     return train_data, val_data
 
 
-
 def save_data(data, path):
     with open(path, 'w') as fw:
         for item in data:

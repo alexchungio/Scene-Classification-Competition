@@ -36,6 +36,9 @@ model_urls = {
 
 # use sub load
 def _resnext(arch, block, layers, pretrained, progress, **kwargs):
+    """
+
+    """
     model = ResNet(block, layers, **kwargs)
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)

@@ -17,8 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-_all__ = ['read_class_names', 'plt_imshow', 'plot_image_class']
-
+_all__ = ['read_class_names', 'plt_imshow', 'plot_image_class', 'accuracy', 'precision']
 
 
 def read_class_names(class_file_name):
@@ -62,3 +61,31 @@ def plot_image_class(images, labels, index_class):
         plt_imshow(img, label)
         plt.axis('off')
     plt.show()
+
+
+def accuracy(output, target, topk=(1,)):
+    """
+    Computes the precision@k for the specified values of k
+    :param output: [batch_size, num_classes]
+    :param target: [batch_size, 1]
+    :param topk:
+    :return:
+    """
+    max_k = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(max_k, dim=1, largest=True, sorted=True)
+
+    # transpose => (max_k, batch_size)
+    pred = pred.t()
+    # => [batch_size, max_k]
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.__div__(batch_size))
+    return res
+
+def precision(output, target):
+    pass

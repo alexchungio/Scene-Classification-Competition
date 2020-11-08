@@ -33,14 +33,14 @@ parser.add_argument('-val', '--val_data', default=os.path.join(ROOT_PATH, 'data'
 parser.add_argument('--classes', default=os.path.join(ROOT_PATH, 'data', 'classes', 'scene.names'), type=str)
 
 # Checkpoints
-parser.add_argument('-c', '--checkpoint', default=os.path.join(ROOT_PATH, 'outputs', 'weights'), type=str, metavar='PATH',
+parser.add_argument('-c', '--checkpoint', default=os.path.join(ROOT_PATH, 'outputs', 'weights', 'ckpt.pth'), type=str, metavar='PATH',
                     help='path to save checkpoint (default: checkpoint)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
+                    help='resume the train log info')
 # Logs
 parser.add_argument('-s', '--summary', default=os.path.join(ROOT_PATH, 'outputs', 'summary'), type=str, metavar='PATH',
                     help='path to save logs (default: logs)')
-
+parser.add_argument('--summary_iter', default=100, type=int, help='number of iterator to save logs (default: 1)')
 # Train
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
@@ -56,8 +56,12 @@ parser.add_argument('--batch_size', default=64, type=int, metavar='N',
 
 
 # LR
-parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
+parser.add_argument('--lr', '--learning_rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate，1e-2， 1e-4, 0.001')
+
+parser.add_argument('--lr_times', '--lr_accelerate_times', default=5, type=int,
+                    metavar='LR', help='custom layer lr accelerate times')
+
 parser.add_argument('--schedule', type=int, nargs='+', default=[30, 50, 60],
                         help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
@@ -77,7 +81,7 @@ parser.add_argument('--drop', '--dropout', default=0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 
 parser.add_argument('--alpha', default=0.99, type=float, metavar='M',
-                         help='alpha for  Adam (default: 0.9)')
+                         help='alpha for RMSprop (default: 0.99)')
 parser.add_argument('--beta1', default=0.9, type=float, metavar='M',
                          help='beta1 for Adam (default: 0.9)')
 parser.add_argument('--beta2', default=0.999, type=float, metavar='M',

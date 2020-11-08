@@ -13,102 +13,169 @@
 import os
 import time
 import pathlib
-import pandas as pd
-import matplotlib.pyplot as plt
 import copy
+from tqdm import tqdm
+import random
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torchvision import models
 from torch.optim import lr_scheduler
+import torch.nn.parallel as parallel
+import torch.backends.cudnn as cudnn
+from torch.utils.tensorboard import SummaryWriter
 
-from libs.configs import cfgs
-from data.dataset import DataProvider, data_loader
-from utils.misc import plt_imshow, plot_image_class
-
-from tqdm import tqdm
-
+from configs.cfgs import args
+from data.dataset import DataProvider
+from utils.build_model import make_model
+from utils import get_optimizer, accuracy, AverageMeter, save_checkpoint
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+writer = SummaryWriter(log_dir=args.summary)
 
 
-num_epochs = 50
-num_classes = 6
+# use cuda
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
+use_cuda = torch.cuda.is_available()
+
+# set random sees
+if args.manual_seed is None:
+    args.manual_seed = random.randint(1, 10000)
+
+random.seed(args.manual_seed)
+torch.manual_seed(args.manual_seed)
+if use_cuda:
+    torch.cuda.manual_seed_all(args.manual_seed)
+    torch.backends.cudnn.benchmark = True
+
+
+state = {k: v for k, v in args._get_kwargs()}
 
 def main():
-
-
-    dataset_dir = pathlib.Path(cfgs.DATASET_PATH)
-
-    labels_path = list(dataset_dir.glob('./*.csv'))[0]
-
-    train_data_path = os.path.join(cfgs.DATASET_PATH, 'train')
-    test_data_path = os.path.join(cfgs.DATASET_PATH, 'test')
-
-    train_loader, val_loader, class_index, index_class = data_loader(train_data_path, labels_path, batch_size=64,
-                                                                     split_ratio=0.9)
-
-
-    model = models.squeezenet1_1(pretrained=True)
-    # num_fc_features = models.resnet18(pretrained=True)
-    in_channels = model.classifier[1].in_channels
-
-    # update model
-    # Sequential(
-    #   (0): Dropout(p=0.5, inplace=False)
-    #   (1): Conv2d(512, 1000, kernel_size=(1, 1), stride=(1, 1))
-    #   (2): ReLU(inplace=True)
-    #   (3): AdaptiveAvgPool2d(output_size=(1, 1))
-    # )
-    model.classifier[1] = nn.Conv2d(in_channels, num_classes, kernel_size=1)
-
-    model = model.to(device)
-
-    criterion = nn.CrossEntropyLoss()
-
-    # Observe that all parameters are being optimized
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-
-    # Decay LR by a factor of 0.1 every 7 epochs
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.8)
-
-    since = time.time()
-    best_model_weights = copy.deepcopy(model.state_dict())
+    # --------------------------------config-------------------------------
+    global use_cuda
+    start_epoch = args.start_epoch  # start from epoch 0 or last checkpoint epoch
     best_acc = 0.0
+    global_step = 0
+    # ------------------------------ load dataset---------------------------
+    print('==> Loader dataset {}'.format(args.train_data))
+    data_provider = DataProvider()
+    train_loader = data_provider(args.train_data, args.batch_size, backbone=None, phase='train', num_worker=4)
+    val_loader = data_provider(args.val_data, args.batch_size, backbone=None, phase='val', num_worker=4)
 
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
-        train_loss, train_acc = train(train_loader, model, criterion, optimizer)
-        test_loss, test_acc = test(train_loader, model, criterion)
-        scheduler.step(epoch=epoch)
 
-        if best_acc < test_acc:
-            best_acc = max(best_acc, test_acc)
-            best_model_weights = model.state_dict()
+    # ---------------------------------misc----------------------------------
+    # create checkpoint
+    os.makedirs(args.checkpoint, exist_ok=True)
+
+    # ---------------------------------model---------------------------------
+    model = make_model(args)
+    if use_cuda:
+        model = torch.nn.DataParallel(model).cuda()  # load model to cuda
+    # show model size
+    print('\t Total params volumes: {:.2f} M'.format(sum(param.numel() for param in model.parameters()) / 1000000.0))
+
+    # --------------------------------criterion & optimizer-----------------------
+    criterion = nn.CrossEntropyLoss()
+    optimizer = get_optimizer(model, args)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=5, verbose=False)
+
+    # Resume model
+    if args.resume:
+        # Load checkpoint.
+        print('==> Resuming from checkpoint..')
+        assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+        checkpoint = torch.load(args.resume)
+        best_acc = checkpoint['acc']
+        start_epoch = checkpoint['epoch']
+        # for single or multi gpu
+        if len(args.gpu_id) > 1:
+            model.module.load_state_dict(checkpoint['state_dict'])
+        else:
+            model.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+
+    # eval model
+    if args.evaluate:
+        print('\nEvaluation only')
+        test_loss, test_acc_1, test_acc_5 = test(val_loader, model, criterion, use_cuda)
+        print(' Test => loss {:.4f} | acc_top1 {:.4f} acc_top5'.format(test_loss, test_acc_1, test_acc_5))
+
+        return None
+
+    # best_model_weights = copy.deepcopy(model.state_dict())
+    since = time.time()
+    for epoch in range(start_epoch, args.epochs):
+        print('Epoch {}/{} | LR {:.4f}'.format(epoch, args.epochs, optimizer.param_group[0]['lr']))
+
+        train_loss, train_acc_1, train_acc_5 = train(train_loader, model, criterion, optimizer, args.summary_iter, use_cuda)
+        test_loss, test_acc_1, test_acc_5 = train(val_loader, model, criterion, optimizer, use_cuda)
+
+        scheduler.step(metrics=test_loss)
+
+        # save logs
+        writer.add_scalars(main_tag='epoch/loss', tag_scalar_dict={'train': train_loss, 'val': test_loss},
+                           global_step=epoch)
+        writer.add_scalars(main_tag='epoch/acc_top1', tag_scalar_dict={'train': train_acc_1, 'val': test_acc_1},
+                           global_step=epoch)
+        writer.add_scalars(main_tag='epoch/acc_top5', tag_scalar_dict={'train': train_acc_5, 'val': test_acc_5},
+                           global_step=epoch)
+
+        # add learning_rate to logs
+        writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
+
+        #-----------------------------save model-----------------------------
+        if test_acc_1 > best_acc and epoch>100:
+            best_acc = test_acc_1
+            # get param state dict
+            if len(args.gpu_id) > 1:
+                best_model_weights = model.module.state_dict()
+            else:
+                best_model_weights = model.state_dict()
+
+            state = {
+                'epoch': epoch + 1,
+                'acc': best_acc,
+                'state_dict': best_model_weights,
+                'optimizer': optimizer.state_dict()
+            }
+
+            save_checkpoint(state, args.checkpoint)
 
     time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: {:4f}'.format(best_acc))
 
-    # load best model weights
-    model.load_state_dict(best_model_weights)
-    return model
 
+def train(train_loader, model, criterion, optimizer, summary_iter, use_cuda):
 
-def train(train_loader, model, criterion, optimizer):
+    model.train()
+    global global_step
+    losses = AverageMeter()
+    acc_top1 = AverageMeter()
+    acc_top5 = AverageMeter()
 
-    sum_acc, sum_loss, num_samples = 0, 0.0, 0.0
 
     pbar = tqdm(train_loader)
     for inputs, targets in pbar:
-        inputs,targets = inputs.to(device), targets.to(device)
+        if use_cuda:
+            inputs, targets = inputs.cuda(), targets.cuda()
+
+        # computer output
         outputs = model(inputs)
-        _, preds = torch.max(outputs, 1)
         loss = criterion(outputs, targets)
+
+        # measure accuracy and record
+        acc_1, acc_5 = accuracy(outputs.data, target=targets.data, topk=(1, 5))
+        losses.update(loss.item(), inputs.size(0))
+        acc_top1.update(acc_1.item(), inputs.size(0))
+        acc_top5.update(acc_5.item(), inputs.size(0))
+
+        if (global_step + 1) % summary_iter == 0:
+            writer.add_scalar(tag='train/loss', scalar_value=loss.cpu().item(), global_step=global_step)
+            writer.add_scalar(tag='train/acc_top1', scalar_value= acc_1, global_step=global_step)
+            writer.add_scalar(tag='train/acc_top5', scalar_value=acc_5, global_step=global_step)
+
         # grad clearing
         optimizer.zero_grad()
         # computer grad
@@ -116,49 +183,44 @@ def train(train_loader, model, criterion, optimizer):
         # update params
         optimizer.step()
 
-        sum_acc += torch.sum(preds == targets.data)
-        sum_loss += loss.item() * inputs.size(0)
-
-        num_samples += inputs.size(0)
+        global_step += 1
 
         pbar.set_description('train loss {0}'.format(loss.item()), refresh=False)
 
-    epoch_acc = sum_acc / num_samples
-    epoch_loss = sum_loss / num_samples
+    pbar.write('\ttrain => loss {:.4f} | acc_top1 {:.4f}  acc_top5{:4f}'.format(losses.avg, acc_top1.avg, acc_top5.avg))
 
-    pbar.write('\ttrain => loss {:.4f}, acc {:.4f}'.format(epoch_loss, epoch_acc))
-
-    return epoch_loss, epoch_acc
+    return (losses.avg, acc_top1.avg, acc_top5.avg)
 
 
-def test(eval_loader, model, criterion):
-    sum_acc, sum_loss, num_samples = 0, 0.0, 0.0
+def test(eval_loader, model, criterion, use_cuda):
+
+    model.eval()
+
+    losses = AverageMeter()
+    acc_top1 = AverageMeter()
+    acc_top5 = AverageMeter()
 
     pbar = tqdm(eval_loader)
     with torch.set_grad_enabled(mode=False):
         for inputs, targets in pbar:
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
+            if use_cuda:
+                inputs, targets = inputs.cuda(), targets.cuda()
 
+            # compute output
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
 
-            sum_acc += torch.sum(preds == targets.data)
-            sum_loss += loss.item() * inputs.size(0)
+            acc_1, acc_5 = accuracy(outputs.data, target=targets.data, topk=(1, 5))
+            losses.update(loss.item(), inputs.size(0))
+            acc_top1.update(acc_1.item(), inputs.size(0))
+            acc_top5.update(acc_5.item(), inputs.size(0))
 
-            num_samples += inputs.size(0)
+            pbar.set_description('eval loss {0}'.format(loss.item()), refresh=False)
 
-            pbar.set_description('train loss {0}'.format(loss.item()), refresh=False)
+    pbar.write('\teval => loss {:.4f} | acc_top1 {:.4f}  acc_top5{:4f}'.format(losses.avg, acc_top1.avg, acc_top5.avg))
 
-    epoch_acc = sum_acc / num_samples
-    epoch_loss = sum_loss / num_samples
-    pbar.write('\teval => loss {:.4f}, acc {:.4f}'.format(epoch_loss, epoch_acc))
-
-    return epoch_loss, epoch_acc
+    return (losses.avg, acc_top1.avg, acc_top5.avg)
 
 if __name__ == "__main__":
 
     main()
-
-
-

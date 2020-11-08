@@ -12,8 +12,6 @@
 
 import os
 import glob
-import pandas as pd
-import pathlib
 from PIL import Image
 import matplotlib.pyplot as plt
 

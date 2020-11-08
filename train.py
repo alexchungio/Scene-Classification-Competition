@@ -51,22 +51,18 @@ if use_cuda:
 
 state = {k: v for k, v in args._get_kwargs()}
 
+global_step = 0
+
 def main():
     # --------------------------------config-------------------------------
     global use_cuda
     start_epoch = args.start_epoch  # start from epoch 0 or last checkpoint epoch
     best_acc = 0.0
-    global_step = 0
     # ------------------------------ load dataset---------------------------
     print('==> Loader dataset {}'.format(args.train_data))
     data_provider = DataProvider()
     train_loader = data_provider(args.train_data, args.batch_size, backbone=None, phase='train', num_worker=4)
     val_loader = data_provider(args.val_data, args.batch_size, backbone=None, phase='val', num_worker=4)
-
-
-    # ---------------------------------misc----------------------------------
-    # create checkpoint
-    os.makedirs(args.checkpoint, exist_ok=True)
 
     # ---------------------------------model---------------------------------
     model = make_model(args)
@@ -106,10 +102,10 @@ def main():
     # best_model_weights = copy.deepcopy(model.state_dict())
     since = time.time()
     for epoch in range(start_epoch, args.epochs):
-        print('Epoch {}/{} | LR {:.4f}'.format(epoch, args.epochs, optimizer.param_group[0]['lr']))
+        print('Epoch {}/{} | LR {:.4f}'.format(epoch, args.epochs, optimizer.param_groups[0]['lr']))
 
         train_loss, train_acc_1, train_acc_5 = train(train_loader, model, criterion, optimizer, args.summary_iter, use_cuda)
-        test_loss, test_acc_1, test_acc_5 = train(val_loader, model, criterion, optimizer, use_cuda)
+        test_loss, test_acc_1, test_acc_5 = test(val_loader, model, criterion, use_cuda)
 
         scheduler.step(metrics=test_loss)
 
@@ -125,7 +121,7 @@ def main():
         writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
 
         #-----------------------------save model-----------------------------
-        if test_acc_1 > best_acc and epoch>100:
+        if test_acc_1 > best_acc and epoch>50:
             best_acc = test_acc_1
             # get param state dict
             if len(args.gpu_id) > 1:
@@ -149,12 +145,11 @@ def main():
 
 def train(train_loader, model, criterion, optimizer, summary_iter, use_cuda):
 
-    model.train()
     global global_step
+    model.train()
     losses = AverageMeter()
     acc_top1 = AverageMeter()
     acc_top5 = AverageMeter()
-
 
     pbar = tqdm(train_loader)
     for inputs, targets in pbar:
@@ -187,7 +182,7 @@ def train(train_loader, model, criterion, optimizer, summary_iter, use_cuda):
 
         pbar.set_description('train loss {0}'.format(loss.item()), refresh=False)
 
-    pbar.write('\ttrain => loss {:.4f} | acc_top1 {:.4f}  acc_top5{:4f}'.format(losses.avg, acc_top1.avg, acc_top5.avg))
+    pbar.write('\ttrain => loss {:.4f} | acc_top1 {:.4f}  acc_top5 {:.4f}'.format(losses.avg, acc_top1.avg, acc_top5.avg))
 
     return (losses.avg, acc_top1.avg, acc_top5.avg)
 
@@ -217,7 +212,7 @@ def test(eval_loader, model, criterion, use_cuda):
 
             pbar.set_description('eval loss {0}'.format(loss.item()), refresh=False)
 
-    pbar.write('\teval => loss {:.4f} | acc_top1 {:.4f}  acc_top5{:4f}'.format(losses.avg, acc_top1.avg, acc_top5.avg))
+    pbar.write('\teval => loss {:.4f} | acc_top1 {:.4f}  acc_top5 {:.4f}'.format(losses.avg, acc_top1.avg, acc_top5.avg))
 
     return (losses.avg, acc_top1.avg, acc_top5.avg)
 

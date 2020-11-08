@@ -21,7 +21,7 @@ import adabound
 from utils.radam import RAdam, AdamW
 
 
-__all__ = ['get_mean_and_std', 'init_params', 'AverageMeter', 'get_optimizer', 'save_checkpoint']
+__all__ = ['get_mean_and_std', 'init_params', 'AverageMeter', 'get_optimizer', 'save_checkpoint', 'accuracy', 'precision']
 
 
 def get_mean_and_std(dataset):
@@ -80,8 +80,9 @@ class AverageMeter(object):
 def get_optimizer(model, args):
     parameters = []
     for name, param in model.named_parameters():
+        # custom layer execute
         if 'fc' in name or 'class' in name or 'last_linear' in name or 'ca' in name or 'sa' in name:
-            parameters.append({'params': param, 'lr': args.lr * args.lr_fc_times})
+            parameters.append({'params': param, 'lr': args.lr * args.lr_times})
         else:
             parameters.append({'params': param, 'lr': args.lr})
 
@@ -115,22 +116,44 @@ def get_optimizer(model, args):
         raise NotImplementedError
 
 
-def save_checkpoint(state, is_best, single=True, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
-    if single:
-        fold = ''
-    else:
-        fold = str(state['fold']) + '_'
-    cur_name = 'checkpoint.pth.tar'
-    filepath = os.path.join(checkpoint, fold + cur_name)
-    curpath = os.path.join(checkpoint, fold + 'model_cur.pth')
+def save_checkpoint(state, path):
+    """
 
-    torch.save(state, filepath)
-    torch.save(state['state_dict'], curpath)
+    :param state:
+    :param path:
+    :return:
+    """
 
-    if is_best and state['epoch'] >= 5:
-        model_name = 'model_' + str(state['epoch']) + '_' + str(int(round(state['train_acc']*100, 0))) + '_' + str(int(round(state['acc']*100, 0))) + '.pth'
-        model_path = os.path.join(checkpoint, fold + model_name)
-        torch.save(state['state_dict'], model_path)
+    assert os.path.isfile(path), 'invalid path'
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save(state, path)
 
+
+def accuracy(output, target, topk=(1,)):
+    """
+    Computes the precision@k for the specified values of k
+    :param output: [batch_size, num_classes]
+    :param target: [batch_size, 1]
+    :param topk:
+    :return:
+    """
+    max_k = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(max_k, dim=1, largest=True, sorted=True)
+
+    # transpose => (max_k, batch_size)
+    pred = pred.t()
+    # => [batch_size, max_k]
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.__div__(batch_size))
+    return res
+
+def precision(output, target):
+    pass
 
 

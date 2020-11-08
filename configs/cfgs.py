@@ -51,7 +51,7 @@ parser.add_argument('--num_classes', default=6, type=int, metavar='N',
                     help='number of classification of image')
 parser.add_argument('--image_size', default=224, type=int, metavar='N',
                     help='train and val image size')
-parser.add_argument('--batch_size', default=64, type=int, metavar='N',
+parser.add_argument('--batch_size', default=8, type=int, metavar='N',
                     help='train batch size (default: 256)')
 
 
@@ -62,7 +62,7 @@ parser.add_argument('--lr', '--learning_rate', default=0.001, type=float,
 parser.add_argument('--lr_times', '--lr_accelerate_times', default=5, type=int,
                     metavar='LR', help='custom layer lr accelerate times')
 
-parser.add_argument('--schedule', type=int, nargs='+', default=[30, 50, 60],
+parser.add_argument('--schedule', type=int, nargs='+', default=[100, 150],
                         help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 
@@ -90,7 +90,7 @@ parser.add_argument('--weight_decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 
 # Architecture
-parser.add_argument('--arch', metavar='ARCH', default='resnext101_32x16d_wsl',
+parser.add_argument('--arch', metavar='ARCH', default='resnext101_32x8d_wsl',
                     choices=model_names,
                     help='model architecture: ' +
                         ' | '.join(model_names) +

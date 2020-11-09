@@ -135,6 +135,7 @@ def get_train_transform(mean, std, size):
         # RandomGaussianBlur(),
         transforms.ToTensor(),
         transforms.Normalize(mean=mean, std=std),
+        transforms.RandomErasing()
     ])
     return train_transform
 

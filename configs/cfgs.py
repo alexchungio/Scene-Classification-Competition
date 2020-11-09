@@ -41,6 +41,7 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
 parser.add_argument('-s', '--summary', default=os.path.join(ROOT_PATH, 'outputs', 'summary'), type=str, metavar='PATH',
                     help='path to save logs (default: logs)')
 parser.add_argument('--summary_iter', default=100, type=int, help='number of iterator to save logs (default: 1)')
+
 # Train
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
@@ -104,6 +105,10 @@ parser.add_argument('--widen_factor', type=int, default=4, help='Widen factor. 4
 parser.add_argument('--manual_seed', type=int, help='manual seed')
 parser.add_argument('--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
+parser.add_argument('--pretrained', default=True, dest='pretrained', action='store_true',
+                    help='use pre-trained model')
+parser.add_argument('--test_path', default=os.path.join(ROOT_PATH, 'outputs', 'test.txt'), type=str, metavar='PATH',
+                    help='resume the train log info')
 
 # Device setting
 parser.add_argument('--gpu-id', default='0', type=str,

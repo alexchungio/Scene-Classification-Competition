@@ -121,7 +121,7 @@ def main():
         writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
 
         #-----------------------------save model-----------------------------
-        if test_acc_1 > best_acc and epoch>50:
+        if test_acc_1 > best_acc and epoch > 10:
             best_acc = test_acc_1
             # get param state dict
             if len(args.gpu_id) > 1:

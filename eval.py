@@ -103,26 +103,24 @@ def main():
     dataset_dir = '/media/alex/80CA308ECA308288/alex_dataset/scene_classification/test'
     model_infer = Inference()
 
-    image_path = glob(os.path.join(dataset_dir, '*.jpg'))
+    # image_path = glob(os.path.join(dataset_dir, '*.jpg'))
+    image_names = sorted(os.listdir(dataset_dir))
     start_time = time.perf_counter()
 
-    pbar = tqdm(enumerate(image_path))
+    pbar = tqdm(enumerate(image_names))
 
     with open(args.test_path, 'w') as fw:
 
-        for i, img_path in pbar:
-            img = Image.open(img_path)
+        for i, img_name in pbar:
+            img = Image.open(os.path.join(dataset_dir, img_name))
             pre_img = model_infer.img_preprocess(img)
             result = model_infer.model(pre_img)
-            result_str = '{},{}\n'.format(os.path.basename(img_path), result['result'])
+            result_str = '{},{}\n'.format(img_name.split('.')[0], result['result'])
             fw.write(result_str)
 
     end_time = time.perf_counter()
     print('Inference cost {} second'.format(int(end_time-start_time)))
     print('Done !')
-
-
-
 
 
 if __name__ == "__main__":

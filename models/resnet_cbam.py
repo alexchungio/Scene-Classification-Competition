@@ -297,7 +297,7 @@ class ResNet(nn.Module):
         return self._forward_impl(x)
 
 
-def _resnext(arch, block, layers, pretrained, progress, **kwargs):
+def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     """
 
     """

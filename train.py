@@ -102,7 +102,7 @@ def main():
     # best_model_weights = copy.deepcopy(model.state_dict())
     since = time.time()
     for epoch in range(start_epoch, args.epochs):
-        print('Epoch {}/{} | LR {:.4f}'.format(epoch, args.epochs, optimizer.param_groups[0]['lr']))
+        print('Epoch {}/{} | LR {:.8f}'.format(epoch, args.epochs, optimizer.param_groups[0]['lr']))
 
         train_loss, train_acc_1, train_acc_5 = train(train_loader, model, criterion, optimizer, args.summary_iter, use_cuda)
         test_loss, test_acc_1, test_acc_5 = test(val_loader, model, criterion, use_cuda)

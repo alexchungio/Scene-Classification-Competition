@@ -13,6 +13,7 @@ from __future__ import absolute_import
 
 
 import os
+import time
 import torch
 import torch.nn as nn
 import torch.utils.data  as data
@@ -123,10 +124,12 @@ def save_checkpoint(state, path):
     :param path:
     :return:
     """
-
-    assert os.path.isfile(path), 'invalid path'
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    torch.save(state, path)
+    try:
+        print('Saving state at {}'.format(time.ctime()))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        torch.save(state, path)
+    except Exception as e:
+        print('Failed due to {}'.format(e))
 
 
 def accuracy(output, target, topk=(1,)):

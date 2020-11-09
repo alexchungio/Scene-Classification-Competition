@@ -130,6 +130,7 @@ def get_train_transform(mean, std, size):
         RelativePreservingResize((int(size * (256 / 224)), int(size * (256 / 224)))),
         transforms.RandomCrop(size),
         transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.02),
         # RandomRotate(15, 0.3),
         # RandomGaussianBlur(),
         transforms.ToTensor(),

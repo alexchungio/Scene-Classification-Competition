@@ -16,6 +16,9 @@ $$Score = \frac{True}{Total}$$
 
 ## Train Logs
 
+### test acc 83.2991
+
+<img align="center" width="600" height="200" src="./docs/submit_acc_83.png">
 
 ## TODO
 

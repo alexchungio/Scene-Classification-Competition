@@ -35,7 +35,7 @@ class Inference(object):
 
         self.index_class = index_class
         self.args = args
-        self.model = self.build_model()
+        self.model = self.build_model().eval()
         self.img_preprocess = self.preprocess()
 
 
@@ -45,9 +45,9 @@ class Inference(object):
 
         # load state dict
         if torch.cuda.is_available():
-            model = torch.nn.DataParallel(model).cuda(device)
+            model = model.to(device)
             model_state = torch.load(args.checkpoint)
-            model.load_state_dict(model_state['state_dict'])
+            model.load_state_dict(model_state['state_dict'], strict=False)
         else:
             model_state = torch.load(args.checkpoint, map_location='cpu')
             model.load_state_dict(model_state)

@@ -17,8 +17,11 @@ $$Score = \frac{True}{Total}$$
 ## Train Logs
 
 ### test acc 83.2991
+<p align=center>
+  <img src="./docs/submit_acc_83.png" width="1078" height="703">
+</p>
 
-<img align="center" width="600" height="200" src="./docs/submit_acc_83.png">
+
 
 ## TODO
 

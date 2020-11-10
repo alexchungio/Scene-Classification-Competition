@@ -44,18 +44,19 @@ def get_mean_and_std(dataset):
 
 def init_params(net):
     '''Init layer parameters.'''
-    for m in net.modules():
-        if isinstance(m, nn.Conv2d):
-            init.kaiming_normal(m.weight, mode='fan_out')
-            if m.bias:
-                init.constant(m.bias, 0)
-        elif isinstance(m, nn.BatchNorm2d):
-            init.constant(m.weight, 1)
-            init.constant(m.bias, 0)
-        elif isinstance(m, nn.Linear):
-            init.normal(m.weight, std=1e-3)
-            if m.bias:
-                init.constant(m.bias, 0)
+    for layer in net.modules():
+        if isinstance(layer, torch.nn.Conv2d):
+            torch.nn.init.kaiming_normal_(layer.weight, mode='fan_out',
+                                          nonlinearity='relu')
+            if layer.bias is not None:
+                torch.nn.init.constant_(layer.bias, val=0.0)
+        elif isinstance(layer, torch.nn.BatchNorm2d):
+            torch.nn.init.constant_(layer.weight, val=1.0)
+            torch.nn.init.constant_(layer.bias, val=0.0)
+        elif isinstance(layer, torch.nn.Linear):
+            torch.nn.init.xavier_normal_(layer.weight)
+            if layer.bias is not None:
+                torch.nn.init.constant_(layer.bias, val=0.0)
 
 
 class AverageMeter(object):
@@ -81,11 +82,25 @@ class AverageMeter(object):
 def get_optimizer(model, args):
     parameters = []
     for name, param in model.named_parameters():
-        # custom layer execute
+
+        # bias weight_decay zero
+        # bias_list = (param for name, param in model.named_parameters() if name[-4:] == 'bias')
+        # others_list = (param for name, param in model.named_parameters() if name[-4:] != 'bias')
+        # parameters = [{'parameters': bias_list, 'weight_decay': 0},
+        #               {'parameters': others_list}]
+
+        # trick => custom layer params learning_rate to enlarge
         if 'fc' in name or 'class' in name or 'last_linear' in name or 'ca' in name or 'sa' in name:
-            parameters.append({'params': param, 'lr': args.lr * args.lr_times})
+            # trick => bias params do not use weight_decay
+            if name[-4:] == 'bias':
+                parameters.append({'params': param, 'lr': args.lr * args.lr_times, 'weight_decay': 0.0})
+            else:
+                parameters.append({'params': param, 'lr': args.lr * args.lr_times})
         else:
-            parameters.append({'params': param, 'lr': args.lr})
+            if name[:-4] == 'bias':
+                parameters.append({'params': param, 'lr': args.lr, 'weight_decay':0.0})
+            else:
+                parameters.append({'params': param, 'lr': args.lr})
 
     if args.optimizer == 'sgd':
         return torch.optim.SGD(parameters,

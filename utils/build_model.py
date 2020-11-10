@@ -32,7 +32,7 @@ model_names = default_model_names + customized_models_names
 
 def make_model(args):
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](progress=True)
+    model = models.__dict__[args.arch](pretrained=args.pretrained, progress=True)
     model.fc = nn.Sequential(
         nn.Dropout(0.2),
         nn.Linear(2048, args.num_classes)

@@ -104,39 +104,40 @@ def main():
     for epoch in range(start_epoch, args.epochs):
         print('Epoch {}/{} | LR {:.8f}'.format(epoch, args.epochs, optimizer.param_groups[0]['lr']))
 
-        train_loss, train_acc_1, train_acc_5 = train(train_loader, model, criterion, optimizer, args.summary_iter, use_cuda)
-        test_loss, test_acc_1, test_acc_5 = test(val_loader, model, criterion, use_cuda)
-
-        scheduler.step(metrics=test_loss)
-
-        # save logs
-        writer.add_scalars(main_tag='epoch/loss', tag_scalar_dict={'train': train_loss, 'val': test_loss},
-                           global_step=epoch)
-        writer.add_scalars(main_tag='epoch/acc_top1', tag_scalar_dict={'train': train_acc_1, 'val': test_acc_1},
-                           global_step=epoch)
-        writer.add_scalars(main_tag='epoch/acc_top5', tag_scalar_dict={'train': train_acc_5, 'val': test_acc_5},
-                           global_step=epoch)
-
-        # add learning_rate to logs
-        writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
-
-        #-----------------------------save model-----------------------------
-        if test_acc_1 > best_acc and epoch > 10:
-            best_acc = test_acc_1
-            # get param state dict
-            if len(args.gpu_id) > 1:
-                best_model_weights = model.module.state_dict()
-            else:
-                best_model_weights = model.state_dict()
-
-            state = {
-                'epoch': epoch + 1,
-                'acc': best_acc,
-                'state_dict': best_model_weights,
-                'optimizer': optimizer.state_dict()
-            }
-
-            save_checkpoint(state, args.checkpoint)
+        # train_loss, train_acc_1, train_acc_5 = train(train_loader, model, criterion, optimizer, args.summary_iter, use_cuda)
+        # test_loss, test_acc_1, test_acc_5 = test(val_loader, model, criterion, use_cuda)
+        #
+        # scheduler.step(metrics=test_loss)
+        #
+        # # save logs
+        # writer.add_scalars(main_tag='epoch/loss', tag_scalar_dict={'train': train_loss, 'val': test_loss},
+        #                    global_step=epoch)
+        # writer.add_scalars(main_tag='epoch/acc_top1', tag_scalar_dict={'train': train_acc_1, 'val': test_acc_1},
+        #                    global_step=epoch)
+        # writer.add_scalars(main_tag='epoch/acc_top5', tag_scalar_dict={'train': train_acc_5, 'val': test_acc_5},
+        #                    global_step=epoch)
+        #
+        # # add learning_rate to logs
+        # writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
+        #
+        # #-----------------------------save model-----------------------------
+        # if test_acc_1 > best_acc and epoch > 10:
+        #     best_acc = test_acc_1
+        #     # get param state dict
+        #     if len(args.gpu_id) > 1:
+        #         best_model_weights = model.module.state_dict()
+        #     else:
+        #         best_model_weights = model.state_dict()
+        #
+        #     state = {
+        #         'epoch': epoch + 1,
+        #         'acc': best_acc,
+        #         'state_dict': best_model_weights,
+        #         'optimizer': optimizer.state_dict()
+        #     }
+        #
+        #     save_checkpoint(state, args.checkpoint)
+        save_checkpoint(state, args.checkpoint)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))

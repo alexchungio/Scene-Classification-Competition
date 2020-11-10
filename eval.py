@@ -35,7 +35,7 @@ class Inference(object):
 
         self.index_class = index_class
         self.args = args
-        self.model = self.build_model().to(device)
+        self.model = self.build_model()
         self.img_preprocess = self.preprocess()
 
 
@@ -45,9 +45,9 @@ class Inference(object):
 
         # load state dict
         if torch.cuda.is_available():
+            model = torch.nn.DataParallel(model).cuda(device)
             model_state = torch.load(args.checkpoint)
-            model.load_state_dict(model_state)
-            model = model.cuda()
+            model.load_state_dict(model_state['state_dict'])
         else:
             model_state = torch.load(args.checkpoint, map_location='cpu')
             model.load_state_dict(model_state)
@@ -85,7 +85,7 @@ class Inference(object):
             pred = self.model(img)
 
         if pred is not None:
-            _, pred_label = torch.max(   pred.data, 1)
+            _, pred_label = torch.max(pred.data, 1)
             result = {'result': self.index_class[pred_label[0].item()]}
         else:
             result = {'result': 'predict score is None'}
@@ -104,7 +104,9 @@ def main():
     model_infer = Inference()
 
     # image_path = glob(os.path.join(dataset_dir, '*.jpg'))
-    image_names = sorted(os.listdir(dataset_dir))
+    image_names = os.listdir(dataset_dir)
+    image_names.sort(key=lambda x: int(x[:-4])) # sort image according to index
+
     start_time = time.perf_counter()
 
     pbar = tqdm(enumerate(image_names))
@@ -114,9 +116,11 @@ def main():
         for i, img_name in pbar:
             img = Image.open(os.path.join(dataset_dir, img_name))
             pre_img = model_infer.img_preprocess(img)
-            result = model_infer.model(pre_img)
+            result = model_infer.inferece({'input_img': pre_img})
             result_str = '{},{}\n'.format(img_name.split('.')[0], result['result'])
             fw.write(result_str)
+
+            pbar.set_description('Processing {}'.format(img_name))
 
     end_time = time.perf_counter()
     print('Inference cost {} second'.format(int(end_time-start_time)))

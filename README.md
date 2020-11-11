@@ -16,11 +16,15 @@ $$Score = \frac{True}{Total}$$
 
 ## Train Logs
 
-### test acc 83.2991
+### baseline
+* use erasing
+
+* test acc: 92.2512
 <p align=center>
-  <img src="./docs/submit_acc_83.png" width="1078" height="703">
+  <img src="docs/submit_acc_92.png" width="1078" height="703">
 </p>
 
+### add label smoothing and bias not use weight decay
 
 
 ## TODO

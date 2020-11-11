@@ -18,6 +18,7 @@ from tqdm import tqdm
 import random
 
 import torch
+import shutil
 import torch.nn as nn
 from torch.optim import lr_scheduler
 import torch.nn.parallel as parallel
@@ -121,26 +122,32 @@ def main():
         writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
 
         #-----------------------------save model-----------------------------
-        if test_acc_1 > best_acc and epoch > 10:
+        # get param state dict
+        if len(args.gpu_id) > 1:
+            best_model_weights = model.module.state_dict()
+        else:
+            best_model_weights = model.state_dict()
+
+        state = {
+            'epoch': epoch + 1,
+            'acc': best_acc,
+            'state_dict': best_model_weights,
+            'optimizer': optimizer.state_dict()
+        }
+        save_checkpoint(state, args.checkpoint)
+
+        # save best checkpoint
+        if test_acc_1 > best_acc:
             best_acc = test_acc_1
-            # get param state dict
-            if len(args.gpu_id) > 1:
-                best_model_weights = model.module.state_dict()
-            else:
-                best_model_weights = model.state_dict()
+            shutil.copy(args.checkpoint, args.best_checkpoint)
 
-            state = {
-                'epoch': epoch + 1,
-                'acc': best_acc,
-                'state_dict': best_model_weights,
-                'optimizer': optimizer.state_dict()
-            }
-
-            save_checkpoint(state, args.checkpoint)
+    writer.close()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: {:4f}'.format(best_acc))
+
+
 
 
 def train(train_loader, model, criterion, optimizer, summary_iter, use_cuda):
@@ -158,7 +165,7 @@ def train(train_loader, model, criterion, optimizer, summary_iter, use_cuda):
 
         outputs = model(inputs)
         if args.mixup:
-            mixed_images, labels_a, labels_b, lambda_ = mix_up(inputs, outputs, alpha=args.mixup_alpha)
+            mixed_images, labels_a, labels_b, lambda_ = mix_up(inputs, targets, alpha=args.mixup_alpha)
             mixed_outputs = model(mixed_images)
             loss = lambda_ * criterion(mixed_outputs, labels_a) + (1 - lambda_) * criterion(mixed_outputs, labels_b)
         else:

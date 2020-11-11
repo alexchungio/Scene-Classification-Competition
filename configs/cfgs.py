@@ -43,7 +43,7 @@ parser.add_argument('-s', '--summary', default=os.path.join(ROOT_PATH, 'outputs'
 parser.add_argument('--summary_iter', default=100, type=int, help='number of iterator to save logs (default: 1)')
 
 # Train
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=50, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful at restart)')
@@ -74,7 +74,7 @@ parser.add_argument('--optimizer', default='sgd',
                          help='optimizer (default=sgd)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
-parser.add_argument('--no_nesterov', dest='nesterov',
+parser.add_argument('--use_nesterov', default=False, dest='nesterov',
                          action='store_false',
                          help='do not use Nesterov momentum')
 
@@ -89,6 +89,10 @@ parser.add_argument('--beta2', default=0.999, type=float, metavar='M',
                          help='beta2 for Adam (default: 0.999)')
 parser.add_argument('--weight_decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
+
+parser.add_argument('--mixup', default=False, type=bool,help='use mixup training strategy')
+parser.add_argument('--mixup_alpha', default=0.2, type=float,help='mixup parameter setting')
+
 
 # Architecture
 parser.add_argument('--arch', metavar='ARCH', default='resnext101_32x8d_wsl',
@@ -107,7 +111,7 @@ parser.add_argument('--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', default=True, dest='pretrained', action='store_true',
                     help='use pre-trained model')
-parser.add_argument('--test_path', default=os.path.join(ROOT_PATH, 'outputs', 'test.txt'), type=str, metavar='PATH',
+parser.add_argument('--test_path', default=os.path.join(ROOT_PATH, 'outputs', 'answer.csv'), type=str, metavar='PATH',
                     help='resume the train log info')
 
 # Device setting
@@ -118,4 +122,4 @@ args = parser.parse_args()
 
 
 if __name__ == "__main__":
-    print(args.train_data)
+    print(args.nesterov)

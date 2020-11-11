@@ -28,7 +28,7 @@ from configs.cfgs import args
 from data.dataset import DataProvider
 from utils.build_model import make_model
 from utils import get_optimizer, accuracy, AverageMeter, save_checkpoint
-
+from utils import mix_up
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 writer = SummaryWriter(log_dir=args.summary)
@@ -104,40 +104,39 @@ def main():
     for epoch in range(start_epoch, args.epochs):
         print('Epoch {}/{} | LR {:.8f}'.format(epoch, args.epochs, optimizer.param_groups[0]['lr']))
 
-        # train_loss, train_acc_1, train_acc_5 = train(train_loader, model, criterion, optimizer, args.summary_iter, use_cuda)
-        # test_loss, test_acc_1, test_acc_5 = test(val_loader, model, criterion, use_cuda)
-        #
-        # scheduler.step(metrics=test_loss)
-        #
-        # # save logs
-        # writer.add_scalars(main_tag='epoch/loss', tag_scalar_dict={'train': train_loss, 'val': test_loss},
-        #                    global_step=epoch)
-        # writer.add_scalars(main_tag='epoch/acc_top1', tag_scalar_dict={'train': train_acc_1, 'val': test_acc_1},
-        #                    global_step=epoch)
-        # writer.add_scalars(main_tag='epoch/acc_top5', tag_scalar_dict={'train': train_acc_5, 'val': test_acc_5},
-        #                    global_step=epoch)
-        #
-        # # add learning_rate to logs
-        # writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
-        #
-        # #-----------------------------save model-----------------------------
-        # if test_acc_1 > best_acc and epoch > 10:
-        #     best_acc = test_acc_1
-        #     # get param state dict
-        #     if len(args.gpu_id) > 1:
-        #         best_model_weights = model.module.state_dict()
-        #     else:
-        #         best_model_weights = model.state_dict()
-        #
-        #     state = {
-        #         'epoch': epoch + 1,
-        #         'acc': best_acc,
-        #         'state_dict': best_model_weights,
-        #         'optimizer': optimizer.state_dict()
-        #     }
-        #
-        #     save_checkpoint(state, args.checkpoint)
-        save_checkpoint(state, args.checkpoint)
+        train_loss, train_acc_1, train_acc_5 = train(train_loader, model, criterion, optimizer, args.summary_iter, use_cuda)
+        test_loss, test_acc_1, test_acc_5 = test(val_loader, model, criterion, use_cuda)
+
+        scheduler.step(metrics=test_loss)
+
+        # save logs
+        writer.add_scalars(main_tag='epoch/loss', tag_scalar_dict={'train': train_loss, 'val': test_loss},
+                           global_step=epoch)
+        writer.add_scalars(main_tag='epoch/acc_top1', tag_scalar_dict={'train': train_acc_1, 'val': test_acc_1},
+                           global_step=epoch)
+        writer.add_scalars(main_tag='epoch/acc_top5', tag_scalar_dict={'train': train_acc_5, 'val': test_acc_5},
+                           global_step=epoch)
+
+        # add learning_rate to logs
+        writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
+
+        #-----------------------------save model-----------------------------
+        if test_acc_1 > best_acc and epoch > 10:
+            best_acc = test_acc_1
+            # get param state dict
+            if len(args.gpu_id) > 1:
+                best_model_weights = model.module.state_dict()
+            else:
+                best_model_weights = model.state_dict()
+
+            state = {
+                'epoch': epoch + 1,
+                'acc': best_acc,
+                'state_dict': best_model_weights,
+                'optimizer': optimizer.state_dict()
+            }
+
+            save_checkpoint(state, args.checkpoint)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -157,9 +156,14 @@ def train(train_loader, model, criterion, optimizer, summary_iter, use_cuda):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
 
-        # computer output
         outputs = model(inputs)
-        loss = criterion(outputs, targets)
+        if args.mixup:
+            mixed_images, labels_a, labels_b, lambda_ = mix_up(inputs, outputs, alpha=args.mixup_alpha)
+            mixed_outputs = model(mixed_images)
+            loss = lambda_ * criterion(mixed_outputs, labels_a) + (1 - lambda_) * criterion(mixed_outputs, labels_b)
+        else:
+            # computer output
+            loss = criterion(outputs, targets)
 
         # measure accuracy and record
         acc_1, acc_5 = accuracy(outputs.data, target=targets.data, topk=(1, 5))
@@ -218,5 +222,4 @@ def test(eval_loader, model, criterion, use_cuda):
     return (losses.avg, acc_top1.avg, acc_top5.avg)
 
 if __name__ == "__main__":
-
     main()

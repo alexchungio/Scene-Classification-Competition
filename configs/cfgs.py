@@ -33,8 +33,12 @@ parser.add_argument('-val', '--val_data', default=os.path.join(ROOT_PATH, 'data'
 parser.add_argument('--classes', default=os.path.join(ROOT_PATH, 'data', 'classes', 'scene.names'), type=str)
 
 # Checkpoints
-parser.add_argument('-c', '--checkpoint', default=os.path.join(ROOT_PATH, 'outputs', 'weights', 'ckpt.pth'), type=str, metavar='PATH',
+parser.add_argument('-c', '--checkpoint', default=os.path.join(ROOT_PATH, 'outputs', 'weights', 'ckpt.pth.tar'), type=str, metavar='PATH',
                     help='path to save checkpoint (default: checkpoint)')
+
+parser.add_argument('--best_checkpoint', default=os.path.join(ROOT_PATH, 'outputs', 'weights', 'best_ckpt.pth.tar'),
+                    type=str, metavar='PATH',  help='path to save best checkpoint (default: checkpoint)')
+
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='resume the train log info')
 # Logs
@@ -43,7 +47,7 @@ parser.add_argument('-s', '--summary', default=os.path.join(ROOT_PATH, 'outputs'
 parser.add_argument('--summary_iter', default=100, type=int, help='number of iterator to save logs (default: 1)')
 
 # Train
-parser.add_argument('--epochs', default=50, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful at restart)')
@@ -52,7 +56,7 @@ parser.add_argument('--num_classes', default=6, type=int, metavar='N',
                     help='number of classification of image')
 parser.add_argument('--image_size', default=224, type=int, metavar='N',
                     help='train and val image size')
-parser.add_argument('--batch_size', default=8, type=int, metavar='N',
+parser.add_argument('--batch_size', default=6, type=int, metavar='N',
                     help='train batch size (default: 256)')
 
 
@@ -72,11 +76,12 @@ parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied b
 parser.add_argument('--optimizer', default='sgd',
                          choices=['sgd', 'rmsprop', 'adam', 'AdaBound', 'radam'], metavar='N',
                          help='optimizer (default=sgd)')
+
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--use_nesterov', default=False, dest='nesterov',
                          action='store_false',
-                         help='do not use Nesterov momentum')
+                         help='do not use Nesterov momentum for SGD')
 
 parser.add_argument('--drop', '--dropout', default=0, type=float,
                     metavar='Dropout', help='Dropout ratio')
@@ -90,7 +95,7 @@ parser.add_argument('--beta2', default=0.999, type=float, metavar='M',
 parser.add_argument('--weight_decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 
-parser.add_argument('--mixup', default=False, type=bool,help='use mixup training strategy')
+parser.add_argument('--mixup', default=True, type=bool,help='use mixup training strategy')
 parser.add_argument('--mixup_alpha', default=0.2, type=float,help='mixup parameter setting')
 
 

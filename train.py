@@ -121,7 +121,7 @@ def main():
         # add learning_rate to logs
         writer.add_scalar(tag='lr', scalar_value=optimizer.param_groups[0]['lr'], global_step=epoch)
 
-        #-----------------------------save model-----------------------------
+        #-----------------------------save model every epoch -----------------------------
         # get param state dict
         if len(args.gpu_id) > 1:
             best_model_weights = model.module.state_dict()
@@ -146,8 +146,6 @@ def main():
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: {:4f}'.format(best_acc))
-
-
 
 
 def train(train_loader, model, criterion, optimizer, summary_iter, use_cuda):

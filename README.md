@@ -17,14 +17,23 @@ $$Score = \frac{True}{Total}$$
 ## Train Logs
 
 ### baseline
-* use erasing
+
+* image augmentation with erasing
 
 * test acc: 92.2512
 <p align=center>
-  <img src="docs/submit_acc_92.png" width="1078" height="703">
+  <img src="docs/submit_acc_92.png" width="1078" height="704">
 </p>
 
-### add label smoothing and bias not use weight decay
+### update 2020/11/12
+
+* training with mixup strategy 
+* bias not use weight_decay
+
+* test acc: 93.7482
+<p align=center>
+  <img src="docs/submit_acc_93.png" width="1078" height="704">
+</p>
 
 
 ## TODO

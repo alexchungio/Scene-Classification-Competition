@@ -14,3 +14,4 @@ from .misc import *
 from .logger import *
 from .radam import *
 from .tools import *
+from .mixup import *

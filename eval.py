@@ -31,11 +31,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Inference(object):
 
-    def __init__(self):
+    def __init__(self, model_path):
 
+        self.model_path = model_path
         self.index_class = index_class
         self.args = args
         self.model = self.build_model().eval()
+
         self.img_preprocess = self.preprocess()
 
 
@@ -45,12 +47,15 @@ class Inference(object):
 
         # load state dict
         if torch.cuda.is_available():
-            model = model.to(device)
-            model_state = torch.load(args.checkpoint)
-            model.load_state_dict(model_state['state_dict'], strict=False)
+            model = torch.nn.DataParallel(model).to(device)
+            # model = model.to(device)
+            model_state = torch.load(self.model_path)
+            model.load_state_dict(model_state['state_dict'])
+            # model.load_state_dict(model_state['state_dict'], strict=False)
         else:
-            model_state = torch.load(args.checkpoint, map_location='cpu')
-            model.load_state_dict(model_state)
+            model = torch.nn.DataParallel(model)
+            model_state = torch.load(self.model_path, map_location='cpu')
+            model.load_state_dict(model_state['state_dict'])
         return model
 
     def preprocess(self):
@@ -92,8 +97,6 @@ class Inference(object):
 
         return result
 
-
-
     def postprocess(self):
         pass
 
@@ -101,7 +104,7 @@ class Inference(object):
 def main():
 
     dataset_dir = '/media/alex/80CA308ECA308288/alex_dataset/scene_classification/test'
-    model_infer = Inference()
+    model_infer = Inference(model_path=args.best_checkpoint)
 
     # image_path = glob(os.path.join(dataset_dir, '*.jpg'))
     image_names = os.listdir(dataset_dir)
@@ -125,6 +128,7 @@ def main():
     end_time = time.perf_counter()
     print('Inference cost {} second'.format(int(end_time-start_time)))
     print('Done !')
+    torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":

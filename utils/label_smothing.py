@@ -95,3 +95,9 @@ class LSR(nn.Module):
 
         else:
             raise ValueError('unrecognized option, expect reduction to be one of none, mean, sum')
+
+
+def label_smoothing():
+    pass
+
+

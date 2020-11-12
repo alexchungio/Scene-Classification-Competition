@@ -13,6 +13,8 @@
 import numpy as np
 import torch
 
+__all__ = ['mix_up']
+
 
 def mix_up(images, labels, alpha=0.2):
     """
@@ -22,6 +24,7 @@ def mix_up(images, labels, alpha=0.2):
     :return:
     """
     if alpha > 0:
+        np.random.beta(alpha, alpha)
         beta_distributed = torch.distributions.beta.Beta(alpha, alpha)
         lambda_ = beta_distributed.sample([]).item()
     else:
@@ -34,8 +37,8 @@ def mix_up(images, labels, alpha=0.2):
 
     mixed_images = lambda_ * images + (1 - lambda_) * images[index, :]
 
-    labels_a = labels
-    labels_b = labels[index]
+    labels_a = labels.long()
+    labels_b = labels[index].long()
 
     return mixed_images, labels_a, labels_b, lambda_
 
@@ -49,6 +52,6 @@ if __name__ == "__main__":
     images = torch.randn((10, 3, 224, 224), dtype=torch.float32)
     labels = torch.randint(0, 6, size=(10, ))
 
-    mixed_images, labels_a, labels_b,lambda_ = mix_up(images, labels, alpha)
+    mixed_images, labels_a, labels_b, lambda_ = mix_up(images, labels, alpha)
 
     print('Done')

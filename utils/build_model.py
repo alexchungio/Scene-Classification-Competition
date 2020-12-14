@@ -35,7 +35,7 @@ def make_model(args):
     model = models.__dict__[args.arch](pretrained=args.pretrained, progress=True)
     model.fc = nn.Sequential(
         nn.Dropout(0.2),
-        nn.Linear(2048, args.num_classes)
+        nn.Linear(model.fc.in_features, args.num_classes)
     )
     return model
 

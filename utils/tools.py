@@ -158,20 +158,36 @@ def accuracy(output, target, topk=(1,)):
     max_k = max(topk)
     batch_size = target.size(0)
 
+    # (batch_size, num_k)
     _, pred = output.topk(max_k, dim=1, largest=True, sorted=True)
 
-    # transpose => (max_k, batch_size)
+    # transpose => (num_k, batch_size)
     pred = pred.t()
-    # => [batch_size, max_k]
+    # => [num_k, batch_size]
     correct = pred.eq(target.view(1, -1).expand_as(pred))
 
     res = []
     for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.__div__(batch_size))
+        correct_k = correct[:k].contiguous().view(-1).float().sum(0)
+        res.append(correct_k.mul_(1 / batch_size))
     return res
 
 def precision(output, target):
     pass
+
+
+if __name__ == "__main__":
+    torch.manual_seed(2020)
+    output = torch.randn(size=(4, 6))
+    output = output.softmax(dim=1)
+
+    print(output)
+    target = torch.tensor([4, 0, 2, 1], dtype=torch.int32)
+
+    res = accuracy(output, target, topk=(1, 5))
+
+    print(res)
+
+
 
 
